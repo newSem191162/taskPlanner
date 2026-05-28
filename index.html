@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Интеллектуальный планировщик задач">
+    <title>📋 Планировщик Задач</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --text: #e0e0e0;
+            --text-sec: #a0a0b0;
+            --accent: #4a9eff;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --border: #2a2a4a;
+        }
+        body.light {
+            --bg: #f5f5f7;
+            --bg-card: #ffffff;
+            --text: #1a1a2e;
+            --text-sec: #666680;
+            --accent: #2563eb;
+            --border: #e0e0e5;
+        }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        h1 { font-size: 1.5rem; color: var(--accent); }
+        .btn { padding: 6px 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
+        .btn-primary { background: var(--accent); color: white; border: none; }
+        .btn-danger { background: var(--danger); color: white; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+        .stat { background: var(--bg-card); padding: 12px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+        .tabs { display: flex; gap: 5px; margin-bottom: 20px; background: var(--bg-card); padding: 5px; border-radius: 12px; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 8px; color: var(--text-sec); }
+        .tab.active { background: var(--bg); color: var(--accent); }
+        .section { display: none; }
+        .section.active { display: block; }
+        .task-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .task-card:hover { transform: translateX(4px); border-color: var(--accent); }
+        .task-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .task-title { font-weight: 600; }
+        .task-meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-sec); }
+        .badge { padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; }
+        .badge-priority { background: rgba(74, 158, 255, 0.2); color: var(--accent); }
+        .badge-overdue { background: rgba(248, 113, 113, 0.2); color: var(--danger); }
+        .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--bg-card); border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 24px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-input, .form-select, .form-textarea { width: 100%; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-sec); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 16px; }
+        .calendar-day { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; }
+        .calendar-day.today { border-color: var(--accent); background: rgba(74,158,255,0.1); }
+        .calendar-day.has-tasks::after { content: "●"; display: block; font-size: 8px; color: var(--accent); }
+        .notification { position: fixed; bottom: 20px; right: 20px; background: var(--bg-card); padding: 12px 20px; border-radius: 12px; transform: translateX(400px); transition: 0.3s; z-index: 2000; }
+        .notification.show { transform: translateX(0); }
+        .hidden { display: none; }
+        @media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } .form-row { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📋 Планировщик</h1>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn" id="themeBtn">🌓</button>
+            <button class="btn" id="statsToggleBtn">📊 Скрыть</button>
+			<button class="btn" id="exportBtn">📤 Экспорт</button>
+			<button class="btn" id="importBtn">📥 Импорт</button>
+            <button class="btn btn-primary" id="newTaskBtn">➕ Новая</button>
+        </div>
+    </div>
+    <div class="stats" id="statsGrid">
+        <div class="stat"><div class="stat-value" id="totalCount">0</div><div>Всего</div></div>
+        <div class="stat"><div class="stat-value" id="activeCount">0</div><div>Активных</div></div>
+        <div class="stat"><div class="stat-value" id="completedCount">0</div><div>Выполнено</div></div>
+        <div class="stat"><div class="stat-value" id="overdueCount">0</div><div>Просрочено</div></div>
+    </div>
+    <div class="tabs">
+        <div class="tab active" data-tab="tasks">📋 Задачи</div>
+        <div class="tab" data-tab="calendar">📅 Календарь</div>
+        <div class="tab" data-tab="analytics">📊 Аналитика</div>
+    </div>
+    <div id="tasksSection" class="section active">
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+            <input type="text" id="searchInput" placeholder="Поиск..." style="flex:1; padding:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:var(--text);">
+            <div class="filter-group" style="display:flex; gap:4px;">
+                <button class="btn filter-btn active" data-filter="all">Все</button>
+                <button class="btn filter-btn" data-filter="active">Активные</button>
+                <button class="btn filter-btn" data-filter="overdue">Просроч</button>
+                <button class="btn filter-btn" data-filter="completed">Выполн</button>
+            </div>
+        </div>
+        <div id="taskList"></div>
+        <div id="emptyState" class="empty-state hidden">📭 Нет задач. Создайте первую!</div>
+    </div>
+    <div id="calendarSection" class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <button class="btn" id="prevMonth">←</button>
+            <h3 id="monthTitle"></h3>
+            <button class="btn" id="nextMonth">→</button>
+        </div>
+        <div id="calendarGrid"></div>
+        <div id="dayTasks" style="margin-top: 24px;"></div>
+    </div>
+    <div id="analyticsSection" class="section">
+        <div id="analyticsContent"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="taskModal">
+    <div class="modal">
+        <div class="modal-header"><h3 id="modalTitle">➕ Новая задача</h3><button class="btn" id="closeModalBtn">✕</button></div>
+        <form id="taskForm">
+            <input type="hidden" id="taskId">
+            <div class="form-group"><input type="text" id="taskTitle" class="form-input" placeholder="Название *" required></div>
+            <div class="form-group"><textarea id="taskDescription" class="form-textarea" placeholder="Описание"></textarea></div>
+            <div class="form-row">
+                <input type="date" id="taskDeadline" class="form-input" required>
+                <select id="taskCategory" class="form-select"><option value="">Без категории</option><option>Работа</option><option>Учеба</option><option>Личное</option><option>Проекты</option><option>Здоровье</option></select>
+            </div>
+            <div class="form-row">
+                <input type="number" id="taskPriority" class="form-input" min="1" max="10" value="5" required>
+                <input type="number" id="taskComplexity" class="form-input" min="0.5" step="0.5" value="2" required>
+            </div>
+            <div class="form-group"><input type="text" id="taskResources" class="form-input" placeholder="Ресурсы"></div>
+            <div class="form-group"><label><input type="checkbox" id="autoSubtasks" checked> 🤖 Авто-подзадачи</label></div>
+            <div id="subtasksContainer" style="display:none"><div id="subtasksList"></div><button type="button" class="btn" id="addSubtaskBtn">+ Подзадача</button></div>
+            <div style="display:flex; gap:8px; margin-top:16px;"><button type="submit" class="btn btn-primary">💾 Сохранить</button><button type="button" class="btn" id="cancelModalBtn">Отмена</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="detailsModal">
+    <div class="modal"><div class="modal-header"><h3 id="detailsTitle"></h3><button class="btn" id="closeDetailsBtn">✕</button></div><div id="detailsContent"></div></div>
+</div>
+
+<div id="notification" class="notification"></div>
+<script src="app.js"></script>
+<script>
+    document.getElementById('exportBtn').onclick = () => window.exportData();
+    document.getElementById('importBtn').onclick = () => window.importData();
+</script>	
+</body>
+</html>
